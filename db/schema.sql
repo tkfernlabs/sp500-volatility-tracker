@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS har_model_params (
 );
 
 -- Indices for better query performance
-CREATE INDEX idx_market_data_symbol_timestamp ON market_data(symbol, timestamp DESC);
-CREATE INDEX idx_volatility_indicators_symbol_timestamp ON volatility_indicators(symbol, timestamp DESC);
-CREATE INDEX idx_trading_signals_symbol_timestamp ON trading_signals(symbol, timestamp DESC);
-CREATE INDEX idx_har_model_params_symbol ON har_model_params(symbol, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_market_data_symbol_timestamp ON market_data(symbol, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_volatility_indicators_symbol_timestamp ON volatility_indicators(symbol, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_trading_signals_symbol_timestamp ON trading_signals(symbol, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_har_model_params_symbol ON har_model_params(symbol, updated_at DESC);
