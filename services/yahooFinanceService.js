@@ -76,6 +76,15 @@ class YahooFinanceService {
     try {
       const quote = await yahooFinance.quote(symbol);
       
+      // Fix timestamp - regularMarketTime is in seconds, convert to milliseconds
+      const timestamp = quote.regularMarketTime ? new Date(quote.regularMarketTime * 1000) : new Date();
+      
+      // Validate the timestamp - if it's invalid or too far in the future, use current time
+      const now = new Date();
+      const validTimestamp = (timestamp > new Date('2030-01-01') || timestamp < new Date('2020-01-01')) 
+        ? now 
+        : timestamp;
+      
       return {
         symbol: quote.symbol,
         price: quote.regularMarketPrice,
@@ -89,7 +98,7 @@ class YahooFinanceService {
         marketCap: quote.marketCap,
         fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh,
         fiftyTwoWeekLow: quote.fiftyTwoWeekLow,
-        timestamp: new Date(quote.regularMarketTime * 1000)
+        timestamp: validTimestamp.toISOString()
       };
     } catch (error) {
       console.error('Error fetching real-time quote:', error);

@@ -57,14 +57,14 @@ app.get('/api/market/summary', async (req, res) => {
     // Use real-time data if available
     const priceData = currentQuote ? {
       symbol: currentQuote.symbol,
-      timestamp: currentQuote.timestamp,
-      open: String(currentQuote.open.toFixed(2)),
-      high: String(currentQuote.high.toFixed(2)),
-      low: String(currentQuote.low.toFixed(2)),
-      close: String(currentQuote.price.toFixed(2)),
-      volume: String(currentQuote.volume),
-      change: currentQuote.change,
-      changePercent: currentQuote.changePercent,
+      timestamp: currentQuote.timestamp || new Date().toISOString(),
+      open: String((currentQuote.open || 0).toFixed(2)),
+      high: String((currentQuote.high || 0).toFixed(2)),
+      low: String((currentQuote.low || 0).toFixed(2)),
+      close: String((currentQuote.price || 0).toFixed(2)),
+      volume: String(currentQuote.volume || 0),
+      change: currentQuote.change || 0,
+      changePercent: currentQuote.changePercent || 0,
       isRealTime: true
     } : (priceResult.rows[0] || null);
     
