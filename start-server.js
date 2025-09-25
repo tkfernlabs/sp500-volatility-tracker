@@ -2,11 +2,13 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const MarketDataService = require('./services/marketDataService');
+const YahooFinanceService = require('./services/yahooFinanceService');
 const VolatilityAnalysisService = require('./services/volatilityAnalysisService');
 const { initDatabase, pool } = require('./db/database');
 
 const app = express();
 const marketDataService = new MarketDataService();
+const yahooFinanceService = new YahooFinanceService();
 const volatilityAnalysisService = new VolatilityAnalysisService();
 
 // Middleware
@@ -23,11 +25,11 @@ app.get('/api/market/summary', async (req, res) => {
   try {
     const { symbol = 'SPY' } = req.query;
     
-    // Try to get real-time quote
+    // Get real-time quote from Yahoo Finance
     let currentQuote = null;
     try {
-      currentQuote = await marketDataService.fetchQuote(symbol);
-      console.log('Fetched real-time quote:', currentQuote);
+      currentQuote = await yahooFinanceService.getRealTimeQuote(symbol);
+      console.log('Fetched real-time quote from Yahoo:', currentQuote);
     } catch (error) {
       console.log('Could not fetch real-time quote:', error.message);
     }
@@ -55,12 +57,12 @@ app.get('/api/market/summary', async (req, res) => {
     // Use real-time data if available
     const priceData = currentQuote ? {
       symbol: currentQuote.symbol,
-      timestamp: new Date(currentQuote.latestTradingDay),
-      open: currentQuote.open,
-      high: currentQuote.high,
-      low: currentQuote.low,
-      close: currentQuote.price,
-      volume: currentQuote.volume,
+      timestamp: currentQuote.timestamp,
+      open: String(currentQuote.open.toFixed(2)),
+      high: String(currentQuote.high.toFixed(2)),
+      low: String(currentQuote.low.toFixed(2)),
+      close: String(currentQuote.price.toFixed(2)),
+      volume: String(currentQuote.volume),
       change: currentQuote.change,
       changePercent: currentQuote.changePercent,
       isRealTime: true
