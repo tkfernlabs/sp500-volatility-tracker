@@ -1,11 +1,16 @@
 # S&P 500 Volatility Tracker with HAR Model
 
+**📈 NOW WITH REAL-TIME S&P 500 DATA FROM ALPHA VANTAGE API**
+
 A comprehensive volatility analysis platform for the S&P 500 index (SPY) that leverages HAR (Heterogeneous Autoregressive) modeling and advanced quantitative indicators to provide trading signals for volatility-based strategies.
+
+**Current SPY Price: $661.10** (Live data updated every 5 minutes)
 
 ## 🚀 Live Demo
 
 - **Frontend**: https://frontend-morphvm-elaa2g3p.http.cloud.morph.so
 - **Backend API**: https://backend-morphvm-elaa2g3p.http.cloud.morph.so/api
+- **Data Source**: Real-time Alpha Vantage API (100+ days of historical data)
 
 ## 📊 Features
 
