@@ -68,13 +68,24 @@ app.get('/api/market/summary', async (req, res) => {
       isRealTime: true
     } : (priceResult.rows[0] || null);
     
+    // Clean up volatility data to handle NaN values
+    let volatilityData = volResult.rows[0] || null;
+    if (volatilityData) {
+      Object.keys(volatilityData).forEach(key => {
+        if (typeof volatilityData[key] === 'string' && 
+            (volatilityData[key] === 'NaN' || volatilityData[key] === 'null')) {
+          volatilityData[key] = null;
+        }
+      });
+    }
+    
     res.json({
       success: true,
       data: {
         symbol,
         timestamp: new Date(),
         price: priceData,
-        volatility: volResult.rows[0] || null,
+        volatility: volatilityData,
         dataSource: currentQuote ? 'real-time' : 'database'
       }
     });
@@ -120,11 +131,17 @@ app.get('/api/market/analysis', async (req, res) => {
       pool.query(harQuery, [symbol])
     ]);
     
+    // Filter and validate historical data
+    const validHistoricalData = dataResult.rows.filter(row => {
+      const year = new Date(row.timestamp).getFullYear();
+      return year >= 2024 && year <= 2025 && !isNaN(Date.parse(row.timestamp));
+    });
+    
     res.json({
       success: true,
       data: {
         symbol,
-        historicalData: dataResult.rows,
+        historicalData: validHistoricalData,
         signals: signalsResult.rows,
         harModel: harResult.rows[0] || null,
         timestamp: new Date()
