@@ -12,31 +12,56 @@ class MarketDataService {
    */
   async fetchSP500Data(symbol = 'SPY') {
     try {
-      // Fetch daily data
+      console.log(`Fetching real market data for ${symbol}...`);
+      
+      // Fetch daily data (compact = last 100 data points)
       const dailyResponse = await axios.get(this.baseUrl, {
         params: {
           function: 'TIME_SERIES_DAILY',
           symbol: symbol,
           apikey: this.apiKey,
-          outputsize: 'compact'
-        }
+          outputsize: 'compact' // Get last 100 data points
+        },
+        timeout: 10000
       });
 
+      // Check for API errors
       if (dailyResponse.data['Error Message']) {
-        throw new Error('Invalid API response');
+        throw new Error(`Alpha Vantage API Error: ${dailyResponse.data['Error Message']}`);
+      }
+      
+      if (dailyResponse.data['Note']) {
+        console.warn('API call frequency limit reached. Using cached data.');
+        // Try to get cached data from database
+        const cachedData = await this.getLatestData(symbol, 100);
+        if (cachedData && cachedData.length > 0) {
+          return cachedData;
+        }
+        throw new Error('API rate limit reached and no cached data available');
       }
 
       const timeSeries = dailyResponse.data['Time Series (Daily)'];
       if (!timeSeries) {
-        // If demo key, return sample data
-        return this.generateSampleData(symbol);
+        throw new Error('No time series data received from Alpha Vantage');
       }
 
+      console.log(`Successfully fetched ${Object.keys(timeSeries).length} days of data`);
       return this.parseAlphaVantageData(timeSeries, symbol);
     } catch (error) {
       console.error('Error fetching market data:', error.message);
-      // Return sample data for demo purposes
-      return this.generateSampleData(symbol);
+      
+      // Try to get cached data from database as fallback
+      try {
+        const cachedData = await this.getLatestData(symbol, 100);
+        if (cachedData && cachedData.length > 0) {
+          console.log('Using cached data from database');
+          return cachedData;
+        }
+      } catch (dbError) {
+        console.error('Database error:', dbError.message);
+      }
+      
+      throw new Error(`Failed to fetch market data: ${error.message}`);
     }
   }
 
@@ -45,25 +70,82 @@ class MarketDataService {
    */
   async fetchIntradayData(symbol = 'SPY', interval = '5min') {
     try {
+      console.log(`Fetching real intraday data for ${symbol} at ${interval} intervals...`);
+      
       const response = await axios.get(this.baseUrl, {
         params: {
           function: 'TIME_SERIES_INTRADAY',
           symbol: symbol,
           interval: interval,
           apikey: this.apiKey,
-          outputsize: 'compact'
-        }
+          outputsize: 'full'
+        },
+        timeout: 10000
       });
+
+      // Check for API errors
+      if (response.data['Error Message']) {
+        throw new Error(`Alpha Vantage API Error: ${response.data['Error Message']}`);
+      }
+      
+      if (response.data['Note']) {
+        console.warn('API call frequency limit reached for intraday data');
+        throw new Error('API rate limit reached');
+      }
 
       const timeSeries = response.data[`Time Series (${interval})`];
       if (!timeSeries) {
-        return this.generateSampleIntradayData(symbol);
+        throw new Error('No intraday data received from Alpha Vantage');
       }
 
+      console.log(`Successfully fetched ${Object.keys(timeSeries).length} intraday data points`);
       return this.parseAlphaVantageData(timeSeries, symbol);
     } catch (error) {
       console.error('Error fetching intraday data:', error.message);
-      return this.generateSampleIntradayData(symbol);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch real-time quote for current price
+   */
+  async fetchQuote(symbol = 'SPY') {
+    try {
+      console.log(`Fetching real-time quote for ${symbol}...`);
+      
+      const response = await axios.get(this.baseUrl, {
+        params: {
+          function: 'GLOBAL_QUOTE',
+          symbol: symbol,
+          apikey: this.apiKey
+        },
+        timeout: 10000
+      });
+
+      if (response.data['Error Message']) {
+        throw new Error(`Alpha Vantage API Error: ${response.data['Error Message']}`);
+      }
+
+      const quote = response.data['Global Quote'];
+      if (!quote || !quote['05. price']) {
+        throw new Error('No quote data received');
+      }
+
+      return {
+        symbol: quote['01. symbol'],
+        price: parseFloat(quote['05. price']),
+        change: parseFloat(quote['09. change']),
+        changePercent: quote['10. change percent'],
+        volume: parseInt(quote['06. volume']),
+        latestTradingDay: quote['07. latest trading day'],
+        previousClose: parseFloat(quote['08. previous close']),
+        open: parseFloat(quote['02. open']),
+        high: parseFloat(quote['03. high']),
+        low: parseFloat(quote['04. low'])
+      };
+    } catch (error) {
+      console.error('Error fetching quote:', error.message);
+      throw error;
     }
   }
 
@@ -80,8 +162,8 @@ class MarketDataService {
         open: parseFloat(values['1. open']),
         high: parseFloat(values['2. high']),
         low: parseFloat(values['3. low']),
-        close: parseFloat(values['4. close']),
-        volume: parseInt(values['5. volume'])
+        close: parseFloat(values['4. close'] || values['5. adjusted close']),
+        volume: parseInt(values['5. volume'] || values['6. volume'])
       });
     }
 
@@ -162,26 +244,40 @@ class MarketDataService {
   }
 
   /**
-   * Save market data to database
+   * Save market data to database (simplified with proper upsert)
    */
   async saveMarketData(data) {
+    if (!data || data.length === 0) {
+      return { success: true, count: 0 };
+    }
+    
     const client = await pool.connect();
+    let savedCount = 0;
+    
     try {
       await client.query('BEGIN');
       
+      // Use simple upsert for each record
       for (const item of data) {
         await client.query(`
           INSERT INTO market_data (symbol, timestamp, open, high, low, close, volume)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
           ON CONFLICT (symbol, timestamp) DO UPDATE
-          SET open = $3, high = $4, low = $5, close = $6, volume = $7
+          SET open = EXCLUDED.open,
+              high = EXCLUDED.high,
+              low = EXCLUDED.low,
+              close = EXCLUDED.close,
+              volume = EXCLUDED.volume
         `, [item.symbol, item.timestamp, item.open, item.high, item.low, item.close, item.volume]);
+        savedCount++;
       }
       
       await client.query('COMMIT');
-      return { success: true, count: data.length };
+      console.log(`Successfully saved ${savedCount} market data records`);
+      return { success: true, count: savedCount };
     } catch (error) {
       await client.query('ROLLBACK');
+      console.error('Error saving market data:', error.message);
       throw error;
     } finally {
       client.release();

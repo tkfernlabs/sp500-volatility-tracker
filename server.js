@@ -177,7 +177,16 @@ app.get('/api/market/summary', async (req, res) => {
     const { symbol = 'SPY' } = req.query;
     const { pool } = require('./db/database');
     
-    // Get latest price data
+    // Try to get real-time quote first
+    let currentQuote = null;
+    try {
+      currentQuote = await marketDataService.fetchQuote(symbol);
+      console.log('Fetched real-time quote:', currentQuote);
+    } catch (quoteError) {
+      console.log('Could not fetch real-time quote, using database:', quoteError.message);
+    }
+    
+    // Get latest price data from database
     const priceQuery = `
       SELECT * FROM market_data
       WHERE symbol = $1
@@ -207,13 +216,28 @@ app.get('/api/market/summary', async (req, res) => {
       pool.query(signalsQuery, [symbol])
     ]);
     
+    // Use real-time quote if available, otherwise use database
+    const priceData = currentQuote ? {
+      symbol: currentQuote.symbol,
+      timestamp: new Date(currentQuote.latestTradingDay + 'T16:00:00'),
+      open: currentQuote.open,
+      high: currentQuote.high,
+      low: currentQuote.low,
+      close: currentQuote.price,
+      volume: currentQuote.volume,
+      change: currentQuote.change,
+      changePercent: currentQuote.changePercent,
+      previousClose: currentQuote.previousClose,
+      isRealTime: true
+    } : (priceResult.rows[0] || {});
+    
     const summary = {
       symbol,
       timestamp: new Date(),
-      price: priceResult.rows[0] || {},
+      price: priceData,
       volatility: volResult.rows[0] || {},
       active_signals: parseInt(signalsResult.rows[0]?.active_signals || 0),
-      last_update: priceResult.rows[0]?.timestamp || null
+      last_update: priceData.timestamp || priceResult.rows[0]?.timestamp || null
     };
     
     res.json({
