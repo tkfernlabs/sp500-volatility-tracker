@@ -10,7 +10,7 @@ class VolatilityAnalysisService {
   /**
    * Perform comprehensive volatility analysis
    */
-  async analyzeVolatility(symbol = 'SPY') {
+  async analyzeVolatility(symbol = '^GSPC') {
     try {
       // Get market data
       const marketData = await this.marketDataService.getLatestData(symbol, 252);

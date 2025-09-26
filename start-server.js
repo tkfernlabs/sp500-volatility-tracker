@@ -23,7 +23,7 @@ app.get('/api/health', (req, res) => {
 // Get market summary with real-time data
 app.get('/api/market/summary', async (req, res) => {
   try {
-    const { symbol = 'SPY' } = req.query;
+    const { symbol = '^GSPC' } = req.query;
     
     // Get real-time quote from Yahoo Finance
     let currentQuote = null;
@@ -101,7 +101,7 @@ app.get('/api/market/summary', async (req, res) => {
 // Get analysis
 app.get('/api/market/analysis', async (req, res) => {
   try {
-    const { symbol = 'SPY' } = req.query;
+    const { symbol = '^GSPC' } = req.query;
     
     // Get recent data and analysis
     const dataQuery = `
@@ -159,7 +159,7 @@ app.get('/api/market/analysis', async (req, res) => {
 // Manual data update
 app.post('/api/market/update', async (req, res) => {
   try {
-    const { symbol = 'SPY' } = req.body;
+    const { symbol = '^GSPC' } = req.body;
     
     console.log(`Manual update requested for ${symbol}`);
     
@@ -197,13 +197,13 @@ async function startServer() {
     // Fetch initial data with error handling
     try {
       console.log('Fetching initial market data...');
-      const marketData = await marketDataService.fetchSP500Data('SPY');
+      const marketData = await marketDataService.fetchSP500Data('^GSPC');
       await marketDataService.saveMarketData(marketData);
       console.log('Initial market data saved');
       
       // Run initial analysis
       console.log('Running initial analysis...');
-      await volatilityAnalysisService.analyzeVolatility('SPY');
+      await volatilityAnalysisService.analyzeVolatility('^GSPC');
       console.log('Initial analysis completed');
     } catch (dataError) {
       console.error('Error loading initial data:', dataError.message);

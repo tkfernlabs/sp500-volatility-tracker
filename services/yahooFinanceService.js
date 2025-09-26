@@ -10,7 +10,7 @@ class YahooFinanceService {
   /**
    * Fetch real S&P 500 data from Yahoo Finance
    */
-  async fetchRealSP500Data(symbol = 'SPY') {
+  async fetchRealSP500Data(symbol = '^GSPC') {
     try {
       console.log(`Fetching real-time data for ${symbol} from Yahoo Finance...`);
       
@@ -72,7 +72,7 @@ class YahooFinanceService {
   /**
    * Get real-time quote
    */
-  async getRealTimeQuote(symbol = 'SPY') {
+  async getRealTimeQuote(symbol = '^GSPC') {
     try {
       const quote = await yahooFinance.quote(symbol);
       

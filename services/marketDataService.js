@@ -12,7 +12,7 @@ class MarketDataService {
   /**
    * Fetch S&P 500 data from Alpha Vantage or Yahoo Finance as fallback
    */
-  async fetchSP500Data(symbol = 'SPY') {
+  async fetchSP500Data(symbol = '^GSPC') {
     try {
       console.log(`Fetching real market data for ${symbol}...`);
       
@@ -82,7 +82,7 @@ class MarketDataService {
   /**
    * Fetch intraday data for more granular analysis
    */
-  async fetchIntradayData(symbol = 'SPY', interval = '5min') {
+  async fetchIntradayData(symbol = '^GSPC', interval = '5min') {
     try {
       console.log(`Fetching real intraday data for ${symbol} at ${interval} intervals...`);
       
@@ -123,7 +123,7 @@ class MarketDataService {
   /**
    * Fetch real-time quote for current price
    */
-  async fetchQuote(symbol = 'SPY') {
+  async fetchQuote(symbol = '^GSPC') {
     try {
       console.log(`Fetching real-time quote for ${symbol}...`);
       
