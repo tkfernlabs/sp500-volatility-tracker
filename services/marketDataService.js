@@ -1,20 +1,34 @@
 const axios = require('axios');
 const { pool } = require('../db/database');
+const YahooFinanceService = require('./yahooFinanceService');
 
 class MarketDataService {
   constructor() {
     this.apiKey = process.env.ALPHA_VANTAGE_API_KEY || 'demo';
     this.baseUrl = 'https://www.alphavantage.co/query';
+    this.yahooService = new YahooFinanceService();
   }
 
   /**
-   * Fetch S&P 500 data from Alpha Vantage
+   * Fetch S&P 500 data from Alpha Vantage or Yahoo Finance as fallback
    */
   async fetchSP500Data(symbol = 'SPY') {
     try {
       console.log(`Fetching real market data for ${symbol}...`);
       
-      // Fetch daily data (compact = last 100 data points)
+      // Try Yahoo Finance first since Alpha Vantage demo key doesn't work with SPY
+      try {
+        console.log('Using Yahoo Finance as primary data source...');
+        const yahooData = await this.yahooService.fetchRealSP500Data(symbol);
+        if (yahooData && yahooData.currentPrice) {
+          console.log('Successfully fetched data from Yahoo Finance');
+          return yahooData;
+        }
+      } catch (yahooError) {
+        console.log('Yahoo Finance failed, trying Alpha Vantage...', yahooError.message);
+      }
+      
+      // Fallback to Alpha Vantage
       const dailyResponse = await axios.get(this.baseUrl, {
         params: {
           function: 'TIME_SERIES_DAILY',
@@ -113,6 +127,31 @@ class MarketDataService {
     try {
       console.log(`Fetching real-time quote for ${symbol}...`);
       
+      // Try Yahoo Finance first
+      try {
+        const yahooFinance = require('yahoo-finance2').default;
+        const quote = await yahooFinance.quote(symbol);
+        
+        if (quote && quote.regularMarketPrice) {
+          console.log('Successfully fetched quote from Yahoo Finance');
+          return {
+            symbol: quote.symbol,
+            price: quote.regularMarketPrice,
+            change: quote.regularMarketChange,
+            changePercent: `${quote.regularMarketChangePercent?.toFixed(2)}%`,
+            volume: quote.regularMarketVolume,
+            latestTradingDay: new Date().toISOString().split('T')[0],
+            previousClose: quote.regularMarketPreviousClose,
+            open: quote.regularMarketOpen,
+            high: quote.regularMarketDayHigh,
+            low: quote.regularMarketDayLow
+          };
+        }
+      } catch (yahooError) {
+        console.log('Yahoo Finance quote failed, trying Alpha Vantage...', yahooError.message);
+      }
+      
+      // Fallback to Alpha Vantage
       const response = await axios.get(this.baseUrl, {
         params: {
           function: 'GLOBAL_QUOTE',
@@ -317,3 +356,4 @@ class MarketDataService {
 }
 
 module.exports = MarketDataService;
+
