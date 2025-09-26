@@ -185,6 +185,76 @@ app.post('/api/market/update', async (req, res) => {
   }
 });
 
+// Get historical data with predicted ranges
+app.get('/api/market/historical-predictions', async (req, res) => {
+  try {
+    const { symbol = '^GSPC', days = 60 } = req.query;
+    
+    // Query historical market data with volatility
+    const query = `
+      SELECT 
+        md.timestamp as date,
+        md.open,
+        md.high,
+        md.low,
+        md.close,
+        md.volume,
+        vi.realized_volatility as volatility,
+        vi.garch_forecast,
+        vi.atr_14,
+        vi.parkinson_volatility,
+        vi.garman_klass_volatility
+      FROM market_data md
+      LEFT JOIN volatility_indicators vi 
+        ON md.symbol = vi.symbol 
+        AND DATE(md.timestamp) = DATE(vi.timestamp)
+      WHERE md.symbol = $1
+      ORDER BY md.timestamp DESC
+      LIMIT $2
+    `;
+    
+    const result = await pool.query(query, [symbol, parseInt(days)]);
+    
+    // Process data to include predicted ranges
+    const processedData = result.rows.map(row => {
+      const price = parseFloat(row.close);
+      const volatility = parseFloat(row.volatility || row.garch_forecast || 0.15);
+      
+      // Calculate daily volatility from annual
+      const dailyVol = (volatility > 1 ? volatility / 100 : volatility) / Math.sqrt(252);
+      
+      // 2-sigma range for 95% confidence
+      const priceMove = price * dailyVol * 2;
+      
+      return {
+        date: row.date,
+        timestamp: row.date,
+        open: parseFloat(row.open),
+        high: parseFloat(row.high),
+        low: parseFloat(row.low),
+        close: parseFloat(row.close),
+        volume: parseFloat(row.volume),
+        volatility: volatility,
+        predicted_upper: price + priceMove,
+        predicted_lower: price - priceMove,
+        actual_in_range: parseFloat(row.high) <= (price + priceMove) && parseFloat(row.low) >= (price - priceMove)
+      };
+    });
+    
+    res.json({
+      success: true,
+      data: processedData.reverse(), // Chronological order for charting
+      count: processedData.length
+    });
+  } catch (error) {
+    console.error('Error fetching historical predictions:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 // Initialize database and start server
