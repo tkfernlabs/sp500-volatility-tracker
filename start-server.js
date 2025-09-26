@@ -280,13 +280,14 @@ async function startServer() {
       console.log('Server will start without initial data - use /api/market/update to load data');
     }
     
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`\nServer running on port ${PORT}`);
-      console.log(`API available at http://localhost:${PORT}/api`);
+      console.log(`API available at http://0.0.0.0:${PORT}/api`);
       console.log('\nEndpoints:');
       console.log('GET  /api/health - Health check');
       console.log('GET  /api/market/summary - Get real-time market summary');
       console.log('GET  /api/market/analysis - Get analysis and signals');
+      console.log('GET  /api/market/historical-predictions - Get historical predictions');
       console.log('POST /api/market/update - Trigger manual data update');
     });
   } catch (error) {
